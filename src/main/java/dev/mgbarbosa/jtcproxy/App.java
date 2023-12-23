@@ -1,10 +1,11 @@
 package dev.mgbarbosa.jtcproxy;
 
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import dev.mgbarbosa.jtcproxy.cancellation.CancellationTokenSource;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 
 public class App {

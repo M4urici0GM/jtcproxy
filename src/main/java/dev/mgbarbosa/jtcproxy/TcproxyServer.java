@@ -3,12 +3,13 @@ package dev.mgbarbosa.jtcproxy;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
-import java.rmi.AccessException;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,27 +18,38 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import dev.mgbarbosa.jtcproxy.cancellation.CancellationToken;
+import dev.mgbarbosa.jtcproxy.client.ClientSocketStream;
+import dev.mgbarbosa.jtcproxy.server.DefaultPortProvider;
+import dev.mgbarbosa.jtcproxy.server.PortProvider;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+
+@Builder
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class TcproxyServer {
 
     private static final Integer DEFAULT_BUFFER = (1024 * 1024) * 16; // 16MB
 
-    private ServerSocketChannel server = null;
+    private ServerSocketChannel server;
     private final int port;
     private final int bufferSize;
     private final InetAddress address;
     private final ExecutorService executorService;
+    private final PortProvider portProvider;
     private final Logger logger = LoggerFactory.getLogger(TcproxyServer.class);
 
-    public TcproxyServer(final InetAddress ipAddress, final int port) {
-        this(ipAddress, port, DEFAULT_BUFFER);
+    public static TcproxyServer create(final InetAddress ipAddress, final int port) {
+        return TcproxyServer.builder()
+            .address(ipAddress)
+            .port(port)
+            .bufferSize(DEFAULT_BUFFER)
+            .executorService(Executors.newVirtualThreadPerTaskExecutor())
+            .portProvider(DefaultPortProvider.getDefault())
+            .build();
     }
 
-    public TcproxyServer(final InetAddress ipAddress, final int port, final int bufferSize) {
-        this.port = port;
-        this.address = ipAddress;
-        this.bufferSize = bufferSize;
-        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
-    }
 
     public void startServer() throws IOException {
         this.server = SelectorProvider.provider().openServerSocketChannel();
@@ -48,6 +60,7 @@ public class TcproxyServer {
         logger.info("Server running at {}", this.server.socket().getLocalSocketAddress());
     }
 
+
     public void stopServer() throws InterruptedException {
         this.executorService.close();
         final var result = this.executorService.awaitTermination(10000, TimeUnit.MILLISECONDS);
@@ -57,6 +70,10 @@ public class TcproxyServer {
     }
 
     public void startAccepting(final CancellationToken cancellationToken) throws IOException {
+        if (Objects.isNull(this.server)) {
+            throw new IllegalStateException("Server is not initialized yet. call startServer() before.");
+        }
+
         this.executorService.submit(() -> {
             try {
                 while (!cancellationToken.isCancellationRequested()) {
@@ -82,7 +99,11 @@ public class TcproxyServer {
 
     private void handleSocket(final SocketChannel socket, final CancellationToken cancellationToken) {
         this.executorService.submit(() -> {
-            try (final var client = new ClientSocketStream(socket, this.bufferSize)) {
+            final var clientBuilder = ClientSocketStream.builder()
+                .client(socket)
+                .clientBuffer(ByteBuffer.allocateDirect(this.bufferSize));
+
+            try (final var client = clientBuilder.build()) {
                 socket.configureBlocking(false);
                 client.start(cancellationToken);
             } catch (IOException ex) {
@@ -99,3 +120,4 @@ public class TcproxyServer {
         return this.server.socket().getLocalPort();
     }
 }
+
