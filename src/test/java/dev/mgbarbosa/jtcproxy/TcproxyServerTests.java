@@ -7,18 +7,13 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 
-
 import org.junit.Test;
+
 
 import dev.mgbarbosa.jtcproxy.cancellation.CancellationToken;
 import dev.mgbarbosa.jtcproxy.cancellation.CancellationTokenSource;
@@ -52,30 +47,24 @@ public class TcproxyServerTests {
         final var server = setupServer(cancellationTokenSource.getToken());
 
         // Act
-        final var selector = Selector.open();
         final var serverAddress = Inet4Address.getByName("127.0.0.1");
-        final var socket = SocketChannel.open(new InetSocketAddress(serverAddress, server.getListeningPort()));
-        socket.configureBlocking(false);
-        socket.register(selector, SelectionKey.OP_READ);
-        socket.register(selector, SelectionKey.OP_WRITE);
+        final var socket = new Socket(serverAddress, server.getListeningPort());
+        final var outputStream = socket.getOutputStream();
+        final var inputStream = socket.getInputStream();
 
-
-        final var inputMessage = ByteBuffer.wrap(new byte[] {
+        final var inputMessage = new byte[] {
                 0x01, // Version
                 0x01, // ClientHello
                 0x00, 0x00, // PayloadSize (16 Bit Unsigned int)
-        });
-        while ((socket.write(inputMessage)) != 0) {}
+        };
 
-        final var buffer = ByteBuffer.allocate(1024);
-        var readBytes = 0;
-        while ((readBytes = socket.read(buffer)) == 0) {
-            assertTrue(readBytes >= 0);
-        }
+        outputStream.write(inputMessage);
+        final var buffer = new byte[1024];
+        final var readBytes = inputStream.read(buffer);
 
         assertTrue(readBytes > 0);
 
-        final var byteBuffer = Arrays.copyOfRange(buffer.array(), 0, readBytes);
+        final var byteBuffer = Arrays.copyOfRange(buffer, 0, readBytes);
         final var expectedAnswer = new byte[] {
                 0x01, // Version
                 0x02, // ServerHello
@@ -106,6 +95,11 @@ public class TcproxyServerTests {
         // Act
         final var socket = new Socket("127.0.0.1", server.getListeningPort());
         doHandshake(socket);
+        
+        final var inputMessage = ByteBuffer.wrap(new byte[] {
+            0x01,
+            
+        });
 
         // Cleanup
         cancellationTokenSource.cancel();
@@ -118,7 +112,7 @@ public class TcproxyServerTests {
         final var inputStream = socket.getInputStream();
         final var inputMessage = new byte[] {
                 0x01, // Version
-                0x03, // ClientHello
+                0x01, // ClientHello
                 0x00, 0x00, // Payload size
         };
 

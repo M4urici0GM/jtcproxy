@@ -1,5 +1,5 @@
 package dev.mgbarbosa.jtcproxy.exceptions;
 
-public class BufferIncompleteException extends RuntimeException {
+public class BufferIncompleteException extends Exception {
 
 }

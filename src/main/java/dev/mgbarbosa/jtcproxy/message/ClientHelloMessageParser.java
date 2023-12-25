@@ -2,6 +2,7 @@ package dev.mgbarbosa.jtcproxy.message;
 
 import java.nio.ByteBuffer;
 
+import dev.mgbarbosa.jtcproxy.exceptions.BufferIncompleteException;
 import dev.mgbarbosa.jtcproxy.protocol.Message;
 import dev.mgbarbosa.jtcproxy.protocol.MessageParser;
 import dev.mgbarbosa.jtcproxy.protocol.MessageParserException;
@@ -18,7 +19,7 @@ public class ClientHelloMessageParser implements MessageParser {
     }
 
     @Override
-    public Message parseFrom(final ProtocolVersion version) {
+    public Message parseFrom(final ProtocolVersion version) throws BufferIncompleteException {
         final var streamReader = new StreamReader(buffer);
         final var payloadSize = streamReader.readU16();
 

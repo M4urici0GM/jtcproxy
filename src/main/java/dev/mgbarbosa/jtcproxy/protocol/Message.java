@@ -3,7 +3,9 @@ package dev.mgbarbosa.jtcproxy.protocol;
 public interface Message {
     MessageType type();
 
-    ProtocolVersion version();
+    default ProtocolVersion version() {
+        return ProtocolVersion.Version1;
+    }
 
     int getSize();
 }

@@ -42,14 +42,13 @@ public class TcproxyServer {
 
     public static TcproxyServer create(final InetAddress ipAddress, final int port) {
         return TcproxyServer.builder()
-            .address(ipAddress)
-            .port(port)
-            .bufferSize(DEFAULT_BUFFER)
-            .executorService(Executors.newVirtualThreadPerTaskExecutor())
-            .portProvider(DefaultPortProvider.getDefault())
-            .build();
+                .address(ipAddress)
+                .port(port)
+                .bufferSize(DEFAULT_BUFFER)
+                .executorService(Executors.newVirtualThreadPerTaskExecutor())
+                .portProvider(DefaultPortProvider.getDefault())
+                .build();
     }
-
 
     public void startServer() throws IOException {
         this.server = SelectorProvider.provider().openServerSocketChannel();
@@ -59,7 +58,6 @@ public class TcproxyServer {
 
         logger.info("Server running at {}", this.server.socket().getLocalSocketAddress());
     }
-
 
     public void stopServer() throws InterruptedException {
         this.executorService.close();
@@ -100,8 +98,9 @@ public class TcproxyServer {
     private void handleSocket(final SocketChannel socket, final CancellationToken cancellationToken) {
         this.executorService.submit(() -> {
             final var clientBuilder = ClientSocketStream.builder()
-                .client(socket)
-                .clientBuffer(ByteBuffer.allocateDirect(this.bufferSize));
+                    .client(socket)
+                    .clientBuffer(ByteBuffer.allocateDirect(this.bufferSize))
+                    .portProvider(portProvider);
 
             try (final var client = clientBuilder.build()) {
                 socket.configureBlocking(false);
@@ -120,4 +119,3 @@ public class TcproxyServer {
         return this.server.socket().getLocalPort();
     }
 }
-

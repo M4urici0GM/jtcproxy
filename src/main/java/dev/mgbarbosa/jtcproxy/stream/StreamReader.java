@@ -1,6 +1,7 @@
 package dev.mgbarbosa.jtcproxy.stream;
 
 import java.nio.ByteBuffer;
+import java.util.UUID;
 
 import dev.mgbarbosa.jtcproxy.exceptions.BufferIncompleteException;
 
@@ -12,7 +13,7 @@ public class StreamReader {
         this.innerStream = stream;
     }
 
-    public byte[] readPayload(final int payloadSize) {
+    public byte[] readPayload(final int payloadSize) throws BufferIncompleteException {
         if (this.innerStream.remaining() < payloadSize) {
             throw new BufferIncompleteException();
         }
@@ -23,7 +24,26 @@ public class StreamReader {
         return byteBuffer;
     }
 
-    public int readU16() {
+    public UUID readUuid() throws BufferIncompleteException {
+        if (innerStream.remaining() < 16) {
+            throw new BufferIncompleteException();
+        }
+
+        final var buffer = new byte[16];
+        innerStream.get(buffer, 0, buffer.length);
+
+        return UUID.nameUUIDFromBytes(buffer);
+    }
+
+    public static byte[] convertUuid(final UUID uuid) {
+        final var buffer = new byte[16];
+        return ByteBuffer.wrap(buffer)
+            .putLong(uuid.getMostSignificantBits())
+            .putLong(uuid.getLeastSignificantBits())
+            .array();
+    }
+
+    public int readU16() throws BufferIncompleteException {
         if (innerStream.remaining() < 2) {
             throw new BufferIncompleteException();
         }
@@ -31,7 +51,7 @@ public class StreamReader {
         return Short.toUnsignedInt(innerStream.getShort());
     }
 
-    public int readU8() {
+    public int readU8() throws BufferIncompleteException {
         if (innerStream.remaining() < 1) {
             throw new BufferIncompleteException();
         }
