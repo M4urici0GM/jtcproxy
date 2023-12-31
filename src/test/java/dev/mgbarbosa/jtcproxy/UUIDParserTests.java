@@ -37,7 +37,7 @@ public class UUIDParserTests {
         // Arrange
         final var expectedUuid = randomUUID();
         final var outputStream = new ByteArrayOutputStream(16);
-        outputStream.writeBytes(Longs)
+        outputStream.write()
         outputStream.write((byte) expectedUuid.getLeastSignificantBits());
         outputStream.flush();
 
