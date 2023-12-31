@@ -21,7 +21,7 @@ public class ListenMessageParser implements MessageParser {
 
     @Override
     public Message parseFrom(ProtocolVersion version) {
-        throw new NotImplementedException();
+        return new ListenMessage();
     }
 
     @Override

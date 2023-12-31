@@ -7,7 +7,8 @@ public enum MessageType {
     ServerHello,
     Listen,
     ListenAck,
-    DataMessage;
+    DataMessage,
+    IncomingSocket;
 
     public static MessageType of(int value) {
         return switch (value) {
@@ -16,6 +17,7 @@ public enum MessageType {
             case 3 -> MessageType.Listen;
             case 4 -> MessageType.ListenAck;
             case 5 -> MessageType.DataMessage;
+            case 6 -> MessageType.IncomingSocket;
             default -> throw new InvalidMessageType(value);
         };
     }
@@ -26,6 +28,7 @@ public enum MessageType {
             case ServerHello -> 2;
             case ListenAck -> 4;
             case DataMessage -> 5;
+            case IncomingSocket -> 6;
             default -> 1;
         };
     }

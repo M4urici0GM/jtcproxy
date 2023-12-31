@@ -25,6 +25,11 @@ import dev.mgbarbosa.jtcproxy.cancellation.CancellationToken;
 import dev.mgbarbosa.jtcproxy.exceptions.BufferIncompleteException;
 import dev.mgbarbosa.jtcproxy.message.ClientHelloMessage;
 import dev.mgbarbosa.jtcproxy.message.ClientHelloMessageParser;
+import dev.mgbarbosa.jtcproxy.message.DataMessage;
+import dev.mgbarbosa.jtcproxy.message.DataMessageParser;
+import dev.mgbarbosa.jtcproxy.message.IncomingSocketMessage;
+import dev.mgbarbosa.jtcproxy.message.IncomingSocketMessageParser;
+import dev.mgbarbosa.jtcproxy.message.ListenAckMessage;
 import dev.mgbarbosa.jtcproxy.message.ListenAckMessageParser;
 import dev.mgbarbosa.jtcproxy.message.ListenMessage;
 import dev.mgbarbosa.jtcproxy.message.ListenMessageParser;
@@ -35,6 +40,7 @@ import dev.mgbarbosa.jtcproxy.protocol.MessageParser;
 import dev.mgbarbosa.jtcproxy.protocol.MessageType;
 import dev.mgbarbosa.jtcproxy.protocol.ProtocolVersion;
 import dev.mgbarbosa.jtcproxy.server.PortProvider;
+import dev.mgbarbosa.jtcproxy.server.ServerPort;
 import dev.mgbarbosa.jtcproxy.stream.StreamReader;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -110,6 +116,32 @@ public class ClientSocketStream implements Closeable {
         }
     }
 
+    private void sendListenAck(final ServerPort reservedPort) throws IOException {
+        final var buffer = ByteBuffer.allocate(16);
+        final var messageParser = new ListenAckMessageParser(buffer);
+        final var listenAck = new ListenAckMessage(reservedPort.getPort());
+
+        messageParser.write(listenAck);
+        buffer.flip();
+
+        while (client.write(buffer) != 0) {
+        } // Wait to write entire buffer to client.
+    }
+
+    private void sendIncomingSocket(final UUID connectionId) throws IOException {
+        final var message = new IncomingSocketMessage(connectionId);
+        final var buffer = ByteBuffer.allocate(message.getSize());
+        final var messageParser = new IncomingSocketMessageParser(buffer);
+
+        messageParser.write(message);
+        buffer.flip();
+
+        while (client.write(buffer) != 0) {
+        } // Wait to write entire buffer to client.
+    }
+
+    record DataBuffer(UUID connectionId, byte[] payload) {}
+
     private void handleMessage(Message message, CancellationToken cancellationToken)
             throws IOException, InterruptedException, ExecutionException {
         if (message instanceof ClientHelloMessage) {
@@ -121,7 +153,8 @@ public class ClientSocketStream implements Closeable {
             messageParser.write(answerMessage);
             buffer.flip();
 
-            while (this.client.write(buffer) != 0) { }
+            while (this.client.write(buffer) != 0) {
+            }
 
             this.clientBuffer.compact();
             this.status = ClientStatus.CONNECTED;
@@ -137,8 +170,10 @@ public class ClientSocketStream implements Closeable {
             final var server = new ServerSocket();
             server.bind(address);
 
+            sendListenAck(reservedPort);
+
             final var semaphore = new Semaphore(100);
-            final var clientQueue = new ArrayBlockingQueue<byte[]>(10);
+            final var clientQueue = new ArrayBlockingQueue<DataBuffer>(10);
             final var connectionMap = new ConcurrentHashMap<UUID, ArrayBlockingQueue<byte[]>>();
 
             executor.submit(() -> {
@@ -152,6 +187,9 @@ public class ClientSocketStream implements Closeable {
 
                         final var connectionId = UUID.randomUUID();
                         final var connectionQueue = new ArrayBlockingQueue<byte[]>(10);
+                        sendIncomingSocket(connectionId);
+
+                        log.info("received new connection {}", connectionId);
 
                         connectionMap.put(connectionId, connectionQueue);
 
@@ -186,7 +224,8 @@ public class ClientSocketStream implements Closeable {
                                         buffer.get(byteBuffer);
 
                                         try {
-                                            clientQueue.offer(byteBuffer, 1000, TimeUnit.MILLISECONDS);
+                                            final var dataBuffer = new DataBuffer(connectionId, byteBuffer);
+                                            clientQueue.offer(dataBuffer, 1000, TimeUnit.MILLISECONDS);
                                             buffer.compact();
                                             bytesRead = 0;
                                         } catch (InterruptedException ex) {
@@ -218,11 +257,11 @@ public class ClientSocketStream implements Closeable {
                             continue;
                         }
 
-                        final var byteBuffer = ByteBuffer.allocate(1024 * 1024 * 4);
-                        byteBuffer.put((byte) ProtocolVersion.Version1.getRaw());
-                        byteBuffer.put((byte) MessageType.DataMessage.getRaw());
-                        byteBuffer.putShort((short) polledObject.length);
-                        byteBuffer.put(polledObject, 0, polledObject.length);
+                        final var dataMessage = new DataMessage(polledObject.payload(), polledObject.connectionId());
+                        final var byteBuffer = ByteBuffer.allocate(dataMessage.getSize());
+                        final var messageParser = new DataMessageParser(byteBuffer);
+
+                        messageParser.write(dataMessage);
                         byteBuffer.flip();
 
                         while ((this.client.write(byteBuffer)) != END_OF_STREAM) {

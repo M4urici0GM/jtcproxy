@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 
 import org.junit.Test;
 
+import dev.mgbarbosa.jtcproxy.buffers.NumberBufferUtil;
 import dev.mgbarbosa.jtcproxy.exceptions.BufferIncompleteException;
 import dev.mgbarbosa.jtcproxy.stream.StreamReader;
 
@@ -20,35 +21,22 @@ import dev.mgbarbosa.jtcproxy.stream.StreamReader;
 public class UUIDParserTests {
 
     @Test
-    public void shouldBeAbleToSerializeUUID() {
-        // Arrange
-        final var uuid = randomUUID();
-
-        // Act
-        final var result = StreamReader.convertUuid(uuid);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(result.length == 16);
-    }
-
-    @Test
     public void shouldBeAbleToDeserializeUuid() throws Exception {
         // Arrange
         final var expectedUuid = randomUUID();
-        final var outputStream = new ByteArrayOutputStream(16);
-        outputStream.write()
-        outputStream.write((byte) expectedUuid.getLeastSignificantBits());
-        outputStream.flush();
+        final var buffer = new byte[16];
+        final var byteBuffer = ByteBuffer.wrap(buffer);
 
-        final var byteBuffer = ByteBuffer.wrap(outputStream.toByteArray());
+        byteBuffer.put(NumberBufferUtil.toBytes(expectedUuid.getMostSignificantBits(), 8));
+        byteBuffer.put(NumberBufferUtil.toBytes(expectedUuid.getLeastSignificantBits(), 8));
+        byteBuffer.flip();
         
         // Act
         final var reader = new StreamReader(byteBuffer);
         final var result = reader.readUuid();
 
         // Assert
-        assertTrue(expectedUuid == result);
+        assertTrue(expectedUuid.equals(result));
     }
 
     @Test

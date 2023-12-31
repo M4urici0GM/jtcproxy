@@ -3,6 +3,8 @@ package dev.mgbarbosa.jtcproxy.stream;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
+import org.apache.commons.lang3.NumberRange;
+
 import dev.mgbarbosa.jtcproxy.exceptions.BufferIncompleteException;
 
 public class StreamReader {
@@ -29,18 +31,14 @@ public class StreamReader {
             throw new BufferIncompleteException();
         }
 
-        final var buffer = new byte[16];
-        innerStream.get(buffer, 0, buffer.length);
+        final var buffer = new byte[8];
+        innerStream.get(buffer);
+        final var mostSigBits = NumberBufferUtil.fromBytes(buffer, 8);
 
-        return UUID.nameUUIDFromBytes(buffer);
-    }
+        innerStream.get(buffer);
+        final var leastSigBits = NumberBufferUtil.fromBytes(buffer, 8);
 
-    public static byte[] convertUuid(final UUID uuid) {
-        final var buffer = new byte[16];
-        return ByteBuffer.wrap(buffer)
-            .putLong(uuid.getMostSignificantBits())
-            .putLong(uuid.getLeastSignificantBits())
-            .array();
+        return new UUID(mostSigBits, leastSigBits);
     }
 
     public int readU16() throws BufferIncompleteException {

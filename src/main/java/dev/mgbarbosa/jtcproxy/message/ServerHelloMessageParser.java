@@ -19,7 +19,7 @@ public class ServerHelloMessageParser implements MessageParser {
     }
 
     @Override
-    public Message parseFrom(ProtocolVersion version) {
+    public Message parseFrom(ProtocolVersion version) throws BufferIncompleteException {
         final var innerStream = new StreamReader(buffer);
         final var payloadSize = innerStream.readU16();
         if (payloadSize < 2) {

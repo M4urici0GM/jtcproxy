@@ -33,7 +33,7 @@ public class ListenAckMessageParser implements MessageParser {
         }
 
         byteBuffer.put((byte) ProtocolVersion.Version1.getRaw());
-        byteBuffer.put((byte) MessageType.Listen.getRaw());
+        byteBuffer.put((byte) MessageType.ListenAck.getRaw());
         byteBuffer.putShort((short) U16_SIZE);
         byteBuffer.putShort((short) listenMessage.getListeningPort());
     }
